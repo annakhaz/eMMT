@@ -1,0 +1,6 @@
+*.m~
+*.jpg
+*.csv
+logfiles/
+stim/
+stimlists/
