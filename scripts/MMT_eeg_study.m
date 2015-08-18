@@ -146,7 +146,8 @@ end
 %% set trial timing
 leadinTime = 10.0;      % lead in time if scanning(to allow tissue equilibration at scanner)
 stimTime = 0.3;         % stim duration
-blinkTime = 2;
+prestimTime = 1.0;
+blinkTime = 2.0;
 blinkRate = 0.5; % blink once every half-second
 nBlinks = blinkTime/blinkRate;
 
@@ -191,16 +192,19 @@ goTime = 0;
         % start timing/trigger
         NetStation('Connect', '10.0.0.42'); %check this IP with the netstation
         WaitSecs(1);
+        NetStation('Synchronize', 10);
+        WaitSecs(1);
         NetStation('StartRecording');
         startTime = GetSecs; % for EEG, set this as the start time, all the onsets will be relative to this!
-        WaitSecs(1);
-        NetStation('Synchronize', 45);
-        WaitSecs(1);
         goTime = goTime + leadinTime;
         DrawFormattedText(Window,'+','center','center',S.textColor);
         Screen(S.Window,'Flip');
-        recordKeys(startTime,goTime,d); 
-        
+        if (scanner == 4)
+            NetStation('Synchronize', 10);
+            NetStation('Event', 'CHK', GetSecs + 5);
+        end
+        recordKeys(startTime,goTime,d);
+    
     else % practice, so don't wait for trigger
         if scanner == 1         % on laptop
             MU3getKey('g',d);
@@ -221,57 +225,8 @@ for trial = startTrial:nTrials
     trialcount = trialcount + 1;
     theData.onset(trial) = GetSecs - startTime;
     ITI = ITIs(trial)/1000;
-    
-% BLINK ...    
-    if blinkType == 1
-        for i = 1:nBlinks
-            goTime = goTime + blinkTime/nBlinks - 0.1;
-            
-            Screen('FillRect',Window,[255,255,255],blinkRect)
-            Screen('Flip',Window);
-            recordKeys(startTime,goTime,d);
-            
-            goTime = goTime + 0.1;
-            Screen('FillRect',Window,[0,0,0],blinkRect)
-            Screen('Flip',Window);
-            recordKeys(startTime,goTime,d);
-        end
-    elseif blinkType == 2
-        goTime = goTime + blinkTime - 0.2;
-        Screen('FillRect', Window, S.screenColor);  
-        DrawFormattedText(Window, 'BLINK', 'center', 'center', S.textColor);
-        Screen('Flip', Window);
-        recordKeys(startTime, goTime, d);
-       
-        goTime = goTime + 0.2;
-        Screen('FillRect', Window, S.screenColor);  
-        Screen('Flip', Window);
 
-        recordKeys(startTime, goTime, d);
-    end
-    
-%  how steph did blinking:   
-%         % Blink (flashing)
-%         for i =1:S.blink_num_flashes
-%             Screen(S.Window,'FillRect', S.screenColor);
-%             DrawFormattedText(S.Window,'BLINK','center','center',S.textColor);
-%             if mod(i,2) == 1
-%                 Screen('FrameRect', S.Window, S.textColor, S.blink_rect_frame, S.blink_border_width);
-%             end
-%             if i == 1 && S.scanner ==3
-%                 theData.preSynchTime(ImageTrial) = GetSecs;
-%                 NetStation('Synchronize', 45);
-%                 theData.postSynchTime(ImageTrial) = GetSecs;
-%             end
-%             Screen(S.Window,'Flip');
-%             WaitSecs(S.test.flickerTime*refreshInterval);
-%         end
-%         
-%         theData.image_dur(ImageTrial) = GetSecs - ons_start;  %records precise trial duration
-%         theData.image_num(ImageTrial) = 0; % Fill num cells, so all lists are same length
-%     
-
-% STIM ...
+%% DISTRACTOR STIM
      goTime = goTime + stimTime;
      
      % place DISTRACTOR PIX in one of four quadrants
@@ -286,15 +241,15 @@ for trial = startTrial:nTrials
          end
         if scanner == 4
             % message must be <= 4 characters
-            NetStation('Event', distCat(trial), ...
-                goTime, .01); % start time
+            NetStation('Synchronize', 10);
+            NetStation('Event', distCat(trial));
             % start time can be.. 
             % vbl returned by Screen('Flip')
             % goTime?
             % default: current time
         end
         
-% TARGET WORD...
+%% TARGET WORD
         task = 2; % 1: color task, 2: semantic task
         if task == 1
             % color task
@@ -311,14 +266,52 @@ for trial = startTrial:nTrials
         Screen('Flip',Window);                                          %show stims and annulus and fixation...
         [keys1 RT1] = recordKeys(startTime,goTime,d);
 
-% FIXATION...
+%% BLINK   
+    
+    if scanner == 4
+            NetStation('Synchronize', 10);
+            NetStation('Event', 'BLNK');       
+    end
+    if blinkType == 1
+        for i = 1:nBlinks
+            goTime = goTime + blinkTime/nBlinks - 0.1;
+            
+            Screen('FillRect',Window,[255,255,255],blinkRect)
+            Screen('Flip',Window);
+            recordKeys(startTime,goTime,d);
+            
+            goTime = goTime + 0.1;
+            Screen('FillRect',Window,[0,0,0],blinkRect)
+            Screen('Flip',Window);
+            recordKeys(startTime,goTime,d);
+        end
+    elseif blinkType == 2
+        goTime = goTime + blinkTime - 0.2;
+        Screen('FillRect', Window, S.screenColor);  
+        DrawFormattedText(Window, '[BLINK]', 'center', 'center', [0 206 209]);
+        Screen('Flip', Window);
+        recordKeys(startTime, goTime, d);
+       
+        goTime = goTime + 0.2;
+        Screen('FillRect', Window, S.screenColor);  
+        Screen('Flip', Window);
+
+        recordKeys(startTime, goTime, d);
+    end
+    
+    
+%% FIXATION (incl prestim)
     goTime = goTime + ITI;
     DrawFormattedText(Window, '+','center','center',[255,255,255]);           %create white fixation screen
-    Screen('Flip',Window);                                                 
-    [keys2, RT2] = recordKeys(startTime,goTime,d);                       %if respond after probe (more likely), record keypress
+    Screen('Flip',Window); 
     
-    NetStation('Synchronize', 45); % collect pre/post time to look at
-
+    if (scanner == 4)
+        NetStation('Synchronize', 10);
+        NetStation('Event', 'PRES', GetSecs + (ITI - prestimTime));
+    end
+    [keys2, RT2] = recordKeys(startTime,goTime,d);
+                     
+    
     %Put keypress and RT in theData struct...
     if (RT1 > 0) && (RT2 == 0)                                               %if responded during stim duration
         theData.resp{trial} = keys1(1);
