@@ -68,6 +68,9 @@ if S.on == 0
     end
     S.screenColor = 0; % black screen
     S.textColor = 255;  % white text
+    S.fixColor = [0 206 209]; % pretty green: [0 204 102];
+    S.blinkColor = [255 128 0];
+    
     [S.Window, S.myRect] = Screen(S.screenNumber, 'OpenWindow', S.screenColor, []);
 end
     
@@ -145,13 +148,15 @@ end
 
 %% set trial timing
 leadinTime = 10.0;      % lead in time if scanning(to allow tissue equilibration at scanner)
-stimTime = 0.3;         % stim duration
 prestimTime = 1.0;
+stimTime = 0.3;         % stim duration
+respTime = 4.0; % max of 4s, will be variable
+postRespTime = 0.3; % transition to blink 300ms after response
 blinkTime = 2.0;
 blinkRate = 0.5; % blink once every half-second
 nBlinks = blinkTime/blinkRate;
 
-ITIs = csvread('../jitter_poisson.csv'); % should be jittered btwn 2.8 and 3.2
+ITIs = csvread('../jitter_poisson.csv'); % jittered btwn 2.8 and 3.2
 ix = randperm(nTrials) + (nTrials * (sSess - 1));
 ITIs = ITIs(ix);
 
@@ -183,7 +188,7 @@ goTime = 0;
         end
 
         goTime = goTime + leadinTime;
-        DrawFormattedText(Window,'+','center','center',S.textColor);
+        DrawFormattedText(Window,'+','center','center',S.fixColor);
         Screen(S.Window,'Flip');
         recordKeys(startTime,goTime,d);  % not collecting keys, just a delay -- display 10 sec of "lead in" fixation before beginning
 
@@ -197,12 +202,10 @@ goTime = 0;
         NetStation('StartRecording');
         startTime = GetSecs; % for EEG, set this as the start time, all the onsets will be relative to this!
         goTime = goTime + leadinTime;
-        DrawFormattedText(Window,'+','center','center',S.textColor);
+        DrawFormattedText(Window,'+','center','center',S.fixColor);
         Screen(S.Window,'Flip');
-        if (scanner == 4)
-            NetStation('Synchronize', 10);
-            NetStation('Event', 'CHK', GetSecs + 5);
-        end
+        NetStation('Synchronize', 10);
+        NetStation('Event', 'CHK', GetSecs + 5);
         recordKeys(startTime,goTime,d);
     
     else % practice, so don't wait for trigger
@@ -214,7 +217,7 @@ goTime = 0;
         
         startTime = GetSecs;
         goTime = goTime + 1;  %display 1 sec of "lead in" fixation before beginning
-        DrawFormattedText(Window,'+','center','center',S.textColor);
+        DrawFormattedText(Window,'+','center','center',S.fixColor);
         Screen(S.Window,'Flip');
         recordKeys(startTime,goTime,d);  % not collecting keys, just a delay -- display 4 sec of "lead in" fixation before beginning
         
@@ -225,8 +228,19 @@ for trial = startTrial:nTrials
     trialcount = trialcount + 1;
     theData.onset(trial) = GetSecs - startTime;
     ITI = ITIs(trial)/1000;
-
-%% DISTRACTOR STIM
+    
+%% ITI
+    goTime = goTime + ITI;
+    DrawFormattedText(Window, '+','center','center', S.fixColor);           
+    Screen('Flip',Window); 
+    
+    if (scanner == 4)
+        NetStation('Synchronize', 10);
+        NetStation('Event', 'PRES', GetSecs + (ITI - prestimTime));
+    end
+    recordKeys(startTime,goTime,d);
+    
+%% STIM - DISTRACTOR
      goTime = goTime + stimTime;
      
      % place DISTRACTOR PIX in one of four quadrants
@@ -249,7 +263,7 @@ for trial = startTrial:nTrials
             % default: current time
         end
         
-%% TARGET WORD
+%% STIM - TARGET
         task = 2; % 1: color task, 2: semantic task
         if task == 1
             % color task
@@ -263,54 +277,30 @@ for trial = startTrial:nTrials
             DrawFormattedText(Window, word{trial},'center','center',255);
         end
         
-        Screen('Flip',Window);                                          %show stims and annulus and fixation...
+        Screen('Flip',Window);                                          
         [keys1 RT1] = recordKeys(startTime,goTime,d);
-
-%% BLINK   
-    
-    if scanner == 4
+        if RT1 > 0
+            if (scanner == 4)
+                NetStation('Synchronize', 10);
+                NetStation('Event', 'RESP');
+            end
+        end   
+%% RESPONSE WINDOW
+        DrawFormattedText(Window, '+','center','center', S.fixColor);           
+        Screen('Flip',Window); 
+        
+    if RT1 > 0
+        keys2 = 'noresponse';
+        RT2 = 0;
+    else
+        goTime = goTime + respTime;
+        [keys2, RT2] = recordKeysBreak(startTime,goTime,d);
+        if (scanner == 4)
             NetStation('Synchronize', 10);
-            NetStation('Event', 'BLNK');       
-    end
-    if blinkType == 1
-        for i = 1:nBlinks
-            goTime = goTime + blinkTime/nBlinks - 0.1;
-            
-            Screen('FillRect',Window,[255,255,255],blinkRect)
-            Screen('Flip',Window);
-            recordKeys(startTime,goTime,d);
-            
-            goTime = goTime + 0.1;
-            Screen('FillRect',Window,[0,0,0],blinkRect)
-            Screen('Flip',Window);
-            recordKeys(startTime,goTime,d);
+            NetStation('Event', 'RESP');
         end
-    elseif blinkType == 2
-        goTime = goTime + blinkTime - 0.2;
-        Screen('FillRect', Window, S.screenColor);  
-        DrawFormattedText(Window, '[BLINK]', 'center', 'center', [0 206 209]);
-        Screen('Flip', Window);
-        recordKeys(startTime, goTime, d);
-       
-        goTime = goTime + 0.2;
-        Screen('FillRect', Window, S.screenColor);  
-        Screen('Flip', Window);
-
-        recordKeys(startTime, goTime, d);
-    end
-    
-    
-%% FIXATION (incl prestim)
-    goTime = goTime + ITI;
-    DrawFormattedText(Window, '+','center','center',[255,255,255]);           %create white fixation screen
-    Screen('Flip',Window); 
-    
-    if (scanner == 4)
-        NetStation('Synchronize', 10);
-        NetStation('Event', 'PRES', GetSecs + (ITI - prestimTime));
-    end
-    [keys2, RT2] = recordKeys(startTime,goTime,d);
-                     
+        goTime = goTime - (respTime - RT2);
+    end                   
     
     %Put keypress and RT in theData struct...
     if (RT1 > 0) && (RT2 == 0)                                               %if responded during stim duration
@@ -334,7 +324,48 @@ for trial = startTrial:nTrials
         disp(['response: ' theData.resp{trial}]);
         disp(['RT: ' num2str(theData.respRT(trial))]);
         disp(['ITI: ' num2str(ITI)]);
-             
+        
+ if (RT2 > 0) || (RT1 > 0)
+     goTime = goTime + postRespTime;
+     recordKeys(startTime,goTime,d);
+ end
+        
+%% BLINK   
+    
+    if scanner == 4
+            NetStation('Synchronize', 10);
+            NetStation('Event', 'BLNK');       
+    end
+
+    if blinkType == 1
+        for i = 1:nBlinks
+            goTime = goTime + blinkTime/nBlinks - 0.1;
+            
+            Screen('FillRect',Window,[255,255,255],blinkRect)
+            DrawFormattedText(Window, '+','center','center', S.fixColor);
+            Screen('Flip',Window);
+            recordKeys(startTime,goTime,d);
+            
+            goTime = goTime + 0.1;
+            Screen('FillRect',Window,[0,0,0],blinkRect)
+            Screen('Flip',Window);
+            recordKeys(startTime,goTime,d);
+        end
+    elseif blinkType == 2
+        goTime = goTime + blinkTime - 0.2;
+        Screen('FillRect', Window, S.screenColor);
+        DrawFormattedText(Window, '+','center','center', S.fixColor);
+        DrawFormattedText(Window, '[BLINK]', 'center', 250, S.blinkColor);
+        Screen('Flip', Window);
+        recordKeys(startTime, goTime, d);
+       
+        goTime = goTime + 0.2;
+        Screen('FillRect', Window, S.screenColor);  
+        Screen('Flip', Window);
+
+        recordKeys(startTime, goTime, d);
+    end
+                
 end
 toc
 
