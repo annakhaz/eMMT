@@ -6,6 +6,11 @@ function theData = MMT_eeg_study(thePath,listName,startTrial,testing)
 % written by Melina Uncapher 4/21/08, 
 % adapted from fMRI to EEG by Anna Khazenzon 7/23/15
 
+if nargin == 2
+    startTrial = 1;
+    testing = 0;
+end
+
 if nargin == 3
     testing = 0;
 end
@@ -30,11 +35,11 @@ while 1
         break
     elseif scanner == 4
         S.kbNum = getEEGKeyboard;
-        d = getKeyboardNumberWendyo;
+        d = getKeyboardNumber_Wendyo;
         break
     elseif scanner == 1
         if comp == 1
-            d = getKeyboardNumberWendyo;
+            d = getKeyboardNumber_Wendyo;
         elseif comp == 2
             d = getKeyboardNumber_Anna;
         end
@@ -48,7 +53,8 @@ if testing ~= 1
     sNum = input('Enter subject number: ');
     sSess = input('Enter session number: ');
 end
-blinkType = input('Enter blink screen type, rectangles [1] or text [2]: ');
+%blinkType = input('Enter blink screen type, rectangles [1] or text [2]: ');
+blinkType = 2;
 
 %% Initialize screen:
 if scanner == 2 || scanner == 3 || scanner == 4
@@ -147,7 +153,7 @@ for preall = 1:nTrials
 end
 
 %% set trial timing
-leadinTime = 10.0;      % lead in time if scanning(to allow tissue equilibration at scanner)
+leadinTime = 30.0;      % lead in time if scanning(to allow tissue equilibration at scanner)
 prestimTime = 1.0;
 stimTime = 0.3;         % stim duration
 respTime = 4.0; % max of 4s, will be variable
@@ -404,7 +410,7 @@ end
 fid = fopen(saveName, 'wt');
 fprintf(fid, ('subjNum\tsessInput\tstudySess\tonset\tword\twordColor\tdistCond\tdist\tdistPos\tdistCat\ttestLater\tresp\tRT\tITI\n'));
 for n = 1:trialcount
-    fprintf(fid, '%f\t%f\t%f\t%f\t%s\t%f\t%s\t%s\t%f\t%s\t%s\t%s\t%f\n',...
+    fprintf(fid, '%f\t%f\t%f\t%f\t%s\t%f\t%s\t%s\t%f\t%s\t%s\t%s\t%f\t%f\n',...
         theData.sNum,theData.sSess,theData.stsess(n),theData.onset(n),theData.word{n},theData.wordColor(n),...
         theData.distCond{n}, theData.dist{n},theData.distPos(n), theData.distCat{n}, theData.testLater{n}, ...
         theData.resp{n}, theData.respRT(n), ITIs(n));
