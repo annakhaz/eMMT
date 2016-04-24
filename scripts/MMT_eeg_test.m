@@ -5,7 +5,7 @@ function theData = MMT_eeg_test(thePath,listName,startTrial)
 %  theData = MMT_fMRI_study(thePath,'MU3001_study1',1)
 % written by Melina Uncapher 4/21/08,
 % adapted from fMRI to EEG by Anna Khazenzon 7/23/15
-
+PsychDebugWindowConfiguration
 while 1
     scanner = input('Practice on laptop [1], Practice in scanner [2], or REAL EXPT in scanner [3]? ');
     % Set input device (keyboard or buttonbox)
@@ -83,6 +83,10 @@ Screen('Flip',Window);
 
 % Read stimlist to load stims
 [stsess, word, wordColor, distCond, dist, distPos, distCat, oldNew] = MMT_fMRIReadTestList(thePath,listName); 
+disp(word);
+disp(distCond);
+disp(dist);
+
 cd(thePath.stim);
 
 % Determine number of trials in block
@@ -94,17 +98,17 @@ for n = 1:nTrials
     Word            = word(n,:);                            % word
     WordColor       = wordColor(n,:);                            % word color
     DistCond        = distCond(n,:);                          % Whether memory will be tested for this item later
-    Dist            = dist(n,:);                    % distractor picture
+%    Dist            = dist(n,:);                    % distractor picture
     DistPos         = distPos(n,:);                          % Location of target: L - left of fixation, R - right
     DistCat         = distCat(n,:);                             % Filename of stim
     OldNew          = oldNew(n,:);                             % Filename of stim
 
 %     if strcmp(objCond(n),'NULL')                           % for non-null trials, load images...
 %     else 
-    pic = imread(char(Dist),'jpg');
-    picPtrs(n,1) = Screen('MakeTexture',Window,pic);   %pointer to stim
-%     picPtrs(n,2) = DistPos;                             %pointer to stim's position NOT NECESSARY ANYMORE, BUT KEEPING IN BC LAZY...
-    picPtrs(n,2) = 1;                             %pointer to stim's position 
+%     pic = imread(char(Dist),'jpg');
+%     picPtrs(n,1) = Screen('MakeTexture',Window,pic);   %pointer to stim
+% %     picPtrs(n,2) = DistPos;                             %pointer to stim's position NOT NECESSARY ANYMORE, BUT KEEPING IN BC LAZY...
+%     picPtrs(n,2) = 1;                             %pointer to stim's position 
 
     %     end
 end
@@ -118,7 +122,7 @@ theData.stsess = stsess(1:nTrials,:);
 theData.word = word(1:nTrials,:);
 theData.wordColor = wordColor(1:nTrials,:);
 theData.distCond = distCond(1:nTrials,:);
-theData.dist = dist(1:nTrials,:);
+%theData.dist = dist(1:nTrials,:);
 theData.distPos = distPos(1:nTrials,:);
 theData.distCat = distCat(1:nTrials,:);
 theData.oldNew = oldNew(1:nTrials,:);

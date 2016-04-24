@@ -7,7 +7,7 @@ pwd
 thePath.start = pwd;
 
 [pathstr,curr_dir] = fileparts(pwd); % AK: removed ,ext,versn to run on laptop
-if ~strcmp(curr_dir,'MMT_eeg')
+if ~strcmp(curr_dir,'eMMT')
     fprintf(['You must start the experiment from the MMT_eeg directory. Go there and try again.\n']);
 else
     thePath.scripts = fullfile(thePath.start, 'scripts');
